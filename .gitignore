@@ -1,0 +1,7 @@
+/target
+/bin
+/.settings
+/.classpath
+/.project
+lockservice.log
+dependency-reduced-pom.xml
