@@ -6,6 +6,8 @@ import org.junit.Test;
 
 /**
  * Tests to maintain the sanity and correctness of LockService.
+ * 
+ * @author gaurav
  */
 public class LeasedLockTest {
   private final LockService lockService = new LockServiceImpl();

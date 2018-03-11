@@ -12,7 +12,7 @@ import org.apache.logging.log4j.Logger;
  * end-user and binary semaphore semantics internally to allow a supervisor thread to release it if
  * its lease has expired.
  * 
- * @author gsharma1
+ * @author gaurav
  */
 final class LeasedLock extends AbstractQueuedSynchronizer {
   private static final Logger logger = LogManager.getLogger(LeasedLock.class.getSimpleName());

@@ -29,7 +29,7 @@ import org.apache.logging.log4j.Logger;
  * 2. lock acquisition blocks<br>
  * 3. lock acquisition fails<br>
  * 
- * @author gsharma1
+ * @author gaurav
  */
 public final class LockServiceImpl implements LockService {
   private static final Logger logger = LogManager.getLogger(LockServiceImpl.class.getSimpleName());

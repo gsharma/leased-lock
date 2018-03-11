@@ -8,7 +8,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * Supervisor whose sole reason for existence is to unlock expired locks.
  * 
- * @author gsharma1
+ * @author gaurav
  */
 final class LeaseScanner extends Thread {
   private static final Logger logger = LogManager.getLogger(LeaseScanner.class.getSimpleName());
