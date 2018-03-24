@@ -1,6 +1,7 @@
 package com.github.leasedlock;
 
-import java.util.Queue;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,11 +15,11 @@ final class LeaseScanner extends Thread {
   private static final Logger logger = LogManager.getLogger(LeaseScanner.class.getSimpleName());
 
   // what to scan?
-  private final Queue<LeasedLock> lockPool;
+  private final ConcurrentMap<String, LeasedLock> lockPool;
   // how frequently/when to scan?
   private final long scanIntervalMillis;
 
-  LeaseScanner(final Queue<LeasedLock> lockPool, final long scanIntervalMillis) {
+  LeaseScanner(final ConcurrentMap<String, LeasedLock> lockPool, final long scanIntervalMillis) {
     setName("lock-lease-scanner");
     this.lockPool = lockPool;
     this.scanIntervalMillis = scanIntervalMillis;
@@ -36,13 +37,14 @@ final class LeaseScanner extends Thread {
     // note that might need to short circuit the path
     while (!isInterrupted()) {
       logger.info("Lease Scanner woke up to scan for lease expirations");
-      for (final LeasedLock lock : lockPool) {
+      for (final Entry<String, LeasedLock> lockEntry : lockPool.entrySet()) {
+        final LeasedLock lock = lockEntry.getValue();
         if (lock != null && lock.isLocked() && lock.isExpired()) {
           // boolean released = lock.release(1);
           boolean released = lock.unlock();
           boolean purged = false;
           if (released) {
-            purged = lockPool.remove(lock);
+            purged = lockPool.remove(lockEntry.getKey(), lockEntry.getValue());
           }
           logger.info("released " + lock + ", released: " + released + ", purged: " + purged);
         }

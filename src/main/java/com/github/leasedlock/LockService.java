@@ -7,23 +7,14 @@ package com.github.leasedlock;
  */
 public interface LockService {
 
-  // Create a lock
-  String createLock(long leaseExpirationMillis);
-
-  // Acquire a previously created lock
-  boolean lock(String lockId);
+  // Create and acquire lock
+  Lock lock(String lockedEntityKey, long leaseExpirationMillis, String owner);
 
   // Release a previously acquired lock
-  boolean unlock(String lockId);
+  boolean unlock(String lockedEntityKey, String lockId);
 
-  // Report if a lock associated with a given lock handle is locked
-  boolean isLocked(String lockId);
-
-  // Report who acquired the lock
-  Thread getAcquirer(String lockId);
-
-  // Report who released the lock
-  Thread getReleaser(String lockId);
+  // Report who owns the lock
+  String getOwner(String lockedEntityKey);
 
   // TODO: a simple LockServiceBuilder
 }

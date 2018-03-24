@@ -1,9 +1,9 @@
 package com.github.leasedlock;
 
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,13 +35,15 @@ public final class LockServiceImpl implements LockService {
   private static final Logger logger = LogManager.getLogger(LockServiceImpl.class.getSimpleName());
 
   // core scan data struct
-  // 0. start with a simpler list, maybe be a deque
-  // 1. maintain a min-heap of lock ttl (not needed initially)
-  private final Queue<LeasedLock> lockPool = new LinkedList<>();
+  private final ConcurrentMap<String, LeasedLock> lockPool = new ConcurrentHashMap<>();
 
   // TODO: perennial locks data structure. These locks never expire, so, no point paying the price
   // to scan them in the original list
   private final Map<String, LockServiceImpl> perennialLocks = new HashMap<>();
+
+  // TODO: this should be configurable as a local or remote sequence generator
+  private final SequenceNumberGenerator sequenceNumberGenerator =
+      new InMemorySequenceNumberGenerator();
 
   // TODO: remove silly hardcoding
   public LockServiceImpl() {
@@ -51,75 +53,56 @@ public final class LockServiceImpl implements LockService {
   // TODO: maintain a low watermark for lease expiration to avoid running
   // the expiration scanner like a mad daemon
   @Override
-  public String createLock(final long leaseExpirationMillis) {
-    final LeasedLock lock = new LeasedLock(leaseExpirationMillis);
-    logger.info("created " + lock);
-    lockPool.add(lock);
-    return lock.getId();
-  }
-
-  @Override
-  public boolean lock(final String lockId) {
-    boolean locked = false;
-    LeasedLock lock = locate(lockId);
-    if (lock != null) {
-      locked = lock.lock();
-      logger.info("acquired " + lock);
+  public Lock lock(final String lockedEntityKey, final long leaseExpirationMillis,
+      final String owner) {
+    final LeasedLock lock = new LeasedLock(lockedEntityKey, leaseExpirationMillis,
+        sequenceNumberGenerator.next(), owner);
+    boolean locked = lock.lock();
+    Lock candidate = null;
+    if (locked) {
+      candidate = lockPool.putIfAbsent(lockedEntityKey, lock);
+      if (candidate != null && !candidate.getOwner().equals(lock.getOwner())) {
+        candidate = null;
+        logger.info(owner + " failed to acquire lock on " + lockedEntityKey);
+      } else {
+        if (candidate == null) {
+          logger.info("acquired " + lock);
+        } else {
+          logger.info(owner + " already acquired lock on " + lockedEntityKey);
+        }
+        candidate = lock;
+      }
     }
-    return locked;
+    return candidate;
   }
 
   @Override
-  public boolean unlock(final String lockId) {
+  public boolean unlock(final String lockedEntityKey, final String lockId) {
     boolean unlocked = false;
-    LeasedLock lock = locate(lockId);
-    if (lock != null) {
+    LeasedLock lock = lockPool.get(lockedEntityKey);
+    if (lock != null && lock.getId().equals(lockId)) {
       unlocked = lock.unlock();
       if (unlocked) {
-        lockPool.remove(lock);
-        logger.info("released " + lock);
+        lock = lockPool.remove(lockedEntityKey);
+        if (lock != null) {
+          logger.info("released " + lock);
+          unlocked = true;
+        } else {
+          unlocked = false;
+        }
       }
     }
     return unlocked;
   }
 
   @Override
-  public boolean isLocked(final String lockId) {
-    boolean locked = false;
-    LeasedLock lock = locate(lockId);
+  public String getOwner(String lockedEntityKey) {
+    String owner = null;
+    final LeasedLock lock = lockPool.get(lockedEntityKey);
     if (lock != null) {
-      locked = lock.isLocked();
+      owner = lock.getOwner();
     }
-    return locked;
-  }
-
-  @Override
-  public Thread getAcquirer(String lockId) {
-    Thread acquirer = null;
-    LeasedLock lock = locate(lockId);
-    if (lock != null) {
-      acquirer = lock.getAcquirer();
-    }
-    return acquirer;
-  }
-
-  @Override
-  public Thread getReleaser(String lockId) {
-    Thread releaser = null;
-    LeasedLock lock = locate(lockId);
-    if (lock != null) {
-      releaser = lock.getReleaser();
-    }
-    return releaser;
-  }
-
-  private LeasedLock locate(final String lockId) {
-    for (final LeasedLock lock : lockPool) {
-      if (lock != null && lock.getId().equals(lockId)) {
-        return lock;
-      }
-    }
-    return null;
+    return owner;
   }
 
 }
