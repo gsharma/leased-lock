@@ -31,11 +31,11 @@ import org.apache.logging.log4j.Logger;
  * 
  * @author gaurav
  */
-public final class LockServiceImpl implements LockService {
+final class LockServiceImpl implements LockService {
   private static final Logger logger = LogManager.getLogger(LockServiceImpl.class.getSimpleName());
 
   // core scan data struct
-  private final ConcurrentMap<String, LeasedLock> lockPool = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, Lock> lockPool = new ConcurrentHashMap<>();
 
   // TODO: perennial locks data structure. These locks never expire, so, no point paying the price
   // to scan them in the original list
@@ -46,8 +46,8 @@ public final class LockServiceImpl implements LockService {
       new InMemorySequenceNumberGenerator();
 
   // TODO: remove silly hardcoding
-  public LockServiceImpl() {
-    new LeaseScanner(lockPool, 100L).start();
+  LockServiceImpl(final long scanIntervalMillis) {
+    new LeaseScanner(lockPool, scanIntervalMillis).start();
   }
 
   // TODO: maintain a low watermark for lease expiration to avoid running
@@ -55,7 +55,7 @@ public final class LockServiceImpl implements LockService {
   @Override
   public Lock lock(final String lockedEntityKey, final long leaseExpirationMillis,
       final String owner) {
-    final LeasedLock lock = new LeasedLock(lockedEntityKey, leaseExpirationMillis,
+    final ReentrantLeasedLock lock = new ReentrantLeasedLock(lockedEntityKey, leaseExpirationMillis,
         sequenceNumberGenerator.next(), owner);
     boolean locked = lock.lock();
     Lock candidate = null;
@@ -77,11 +77,11 @@ public final class LockServiceImpl implements LockService {
   }
 
   @Override
-  public boolean unlock(final String lockedEntityKey, final String lockId) {
+  public boolean unlock(final String lockedEntityKey, final String lockId, String owner) {
     boolean unlocked = false;
-    LeasedLock lock = lockPool.get(lockedEntityKey);
-    if (lock != null && lock.getId().equals(lockId)) {
-      unlocked = lock.unlock();
+    Lock lock = lockPool.get(lockedEntityKey);
+    if (lock != null && lock.getId().equals(lockId) && lock.getOwner().equals(owner)) {
+      unlocked = ReentrantLeasedLock.class.cast(lock).unlock();
       if (unlocked) {
         lock = lockPool.remove(lockedEntityKey);
         if (lock != null) {
@@ -98,7 +98,7 @@ public final class LockServiceImpl implements LockService {
   @Override
   public String getOwner(String lockedEntityKey) {
     String owner = null;
-    final LeasedLock lock = lockPool.get(lockedEntityKey);
+    final Lock lock = lockPool.get(lockedEntityKey);
     if (lock != null) {
       owner = lock.getOwner();
     }

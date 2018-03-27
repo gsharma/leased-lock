@@ -14,8 +14,9 @@ import org.apache.logging.log4j.Logger;
  * 
  * @author gaurav
  */
-public final class LeasedLock implements Lock {
-  private static final Logger logger = LogManager.getLogger(LeasedLock.class.getSimpleName());
+public final class ReentrantLeasedLock implements Lock {
+  private static final Logger logger =
+      LogManager.getLogger(ReentrantLeasedLock.class.getSimpleName());
 
   // lock's own id which is surrogate but mostly useful for debugging
   private final String id = UUID.randomUUID().toString();
@@ -52,7 +53,7 @@ public final class LeasedLock implements Lock {
   private Thread releaserThread;
 
   // TODO: check valid input data
-  LeasedLock(final String lockedEntityKey, final long leaseExpirationMillis,
+  ReentrantLeasedLock(final String lockedEntityKey, final long leaseExpirationMillis,
       final long fencingToken, final String owner) {
     this.lockedEntityKey = lockedEntityKey;
     this.leaseExpirationMillis = leaseExpirationMillis;
@@ -154,7 +155,7 @@ public final class LeasedLock implements Lock {
 
   @Override
   public String toString() {
-    return "LeasedLock [id:" + id + ", lockedEntityKey:" + lockedEntityKey + ", owner:" + owner
+    return "Lock [id:" + id + ", lockedEntityKey:" + lockedEntityKey + ", owner:" + owner
         + ", token:" + fencingToken + ", ttl:" + leaseExpirationMillis + ", acquirer:"
         + (acquirerThread != null ? acquirerThread.getName() : null) + ", releaser:"
         + (releaserThread != null ? releaserThread.getName() : null) + ", created:" + createdTstamp

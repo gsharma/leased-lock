@@ -4,13 +4,16 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import com.github.leasedlock.LockService.LockServiceBuilder;
+
 /**
  * Tests to maintain the sanity and correctness of LockService.
  * 
  * @author gaurav
  */
 public class LeasedLockTest {
-  private final LockService lockService = new LockServiceImpl();
+  private final LockService lockService =
+      LockServiceBuilder.newBuilder().namespace("test").scanIntervalMillis(100L).build();
 
   static {
     System.setProperty("log4j.configurationFile", "log4j.properties");
@@ -51,7 +54,7 @@ public class LeasedLockTest {
         lock3.getLeaseExpirationMillis(), lock3.getOwner());
     assertNotNull(tryReacquireAlreadyHeldLock);
 
-    assertTrue(lockService.unlock(lock3.getLockedEntityKey(), lock3.getId()));
+    assertTrue(lockService.unlock(lock3.getLockedEntityKey(), lock3.getId(), lock3.getOwner()));
     assertNull(lockService.getOwner(lock3.getLockedEntityKey()));
   }
 

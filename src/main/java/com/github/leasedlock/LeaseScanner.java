@@ -15,11 +15,11 @@ final class LeaseScanner extends Thread {
   private static final Logger logger = LogManager.getLogger(LeaseScanner.class.getSimpleName());
 
   // what to scan?
-  private final ConcurrentMap<String, LeasedLock> lockPool;
+  private final ConcurrentMap<String, Lock> lockPool;
   // how frequently/when to scan?
   private final long scanIntervalMillis;
 
-  LeaseScanner(final ConcurrentMap<String, LeasedLock> lockPool, final long scanIntervalMillis) {
+  LeaseScanner(final ConcurrentMap<String, Lock> lockPool, final long scanIntervalMillis) {
     setName("lock-lease-scanner");
     this.lockPool = lockPool;
     this.scanIntervalMillis = scanIntervalMillis;
@@ -37,11 +37,11 @@ final class LeaseScanner extends Thread {
     // note that might need to short circuit the path
     while (!isInterrupted()) {
       logger.info("Lease Scanner woke up to scan for lease expirations");
-      for (final Entry<String, LeasedLock> lockEntry : lockPool.entrySet()) {
-        final LeasedLock lock = lockEntry.getValue();
+      for (final Entry<String, Lock> lockEntry : lockPool.entrySet()) {
+        final Lock lock = lockEntry.getValue();
         if (lock != null && lock.isLocked() && lock.isExpired()) {
           // boolean released = lock.release(1);
-          boolean released = lock.unlock();
+          boolean released = ReentrantLeasedLock.class.cast(lock).unlock();
           boolean purged = false;
           if (released) {
             purged = lockPool.remove(lockEntry.getKey(), lockEntry.getValue());
